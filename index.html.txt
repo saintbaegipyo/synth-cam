@@ -1,0 +1,586 @@
+HTML
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SYNTH-CAM Pro Studio (iPhone 18 Inspired)</title>
+    <style>
+        :root {
+            --synth-dark: #121216;
+            --synth-panel: #1a1a24;
+            --synth-metal: #2a2a38;
+            --neon-cyan: #00f3ff;
+            --neon-orange: #ff9100;
+            --neon-green: #00ff66;
+            --neon-pink: #ff0055;
+            --glass: rgba(255, 255, 255, 0.05);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--synth-dark);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+            color: var(--neon-cyan);
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+        }
+
+        header p {
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        /* 메인 신디사이저 섀시 레이아웃 */
+        .synth-chassis {
+            background: linear-gradient(135deg, var(--synth-panel), var(--synth-dark));
+            border: 3px solid #333;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8), inset 0 1px 3px rgba(255,255,255,0.1);
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* 뷰어 화면 영역 (iPhone 프로 스타일 HUD) */
+        .viewport-section {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background: #000;
+            overflow: hidden;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scale(1);
+            transition: transform 0.3s ease, filter 0.3s ease;
+        }
+
+        canvas {
+            display: none;
+        }
+
+        /* 카메라 HUD 오버레이 */
+        .hud-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 15px;
+        }
+
+        .hud-top, .hud-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+            font-family: monospace;
+        }
+
+        .hud-badge {
+            background: rgba(0,0,0,0.6);
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .rec-dot {
+            height: 8px;
+            width: 8px;
+            background-color: var(--neon-pink);
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+            box-shadow: 0 0 8px var(--neon-pink);
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink { 0% {opacity: 1;} 50% {opacity: 0.3;} 100% {opacity: 1;} }
+
+        /* 3x3 그리드 라인 */
+        .grid-lines {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .grid-lines.active { opacity: 0.4; }
+        .grid-cell { border: 1px solid rgba(255, 255, 255, 0.4); }
+
+        /* 터치 포커스 박스 */
+        .focus-box {
+            position: absolute;
+            width: 70px;
+            height: 70px;
+            border: 1px solid var(--neon-cyan);
+            box-shadow: 0 0 10px var(--neon-cyan);
+            transform: translate(-50%, -50%) scale(1.5);
+            opacity: 0;
+            pointer-events: none;
+            transition: transform 0.2s, opacity 0.2s;
+        }
+        .focus-box.animate {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+        }
+
+        /* 신디사이저 컨트롤 패널 (아날로그 노브 및 슬라이더) */
+        .synth-panel {
+            background: var(--synth-metal);
+            padding: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            border-top: 2px solid #222;
+        }
+
+        .module-block {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid #3a3a4d;
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .module-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--neon-cyan);
+            border-bottom: 1px solid #333;
+            padding-bottom: 4px;
+        }
+
+        /* 화각 선택 버튼 그룹 (렌즈 셀렉터) */
+        .lens-buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+        }
+
+        .synth-btn {
+            background: #1c1c28;
+            border: 1px solid #444;
+            color: #ccc;
+            padding: 8px 4px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .synth-btn:hover {
+            border-color: var(--neon-cyan);
+            color: #fff;
+        }
+
+        .synth-btn.active {
+            background: var(--neon-cyan);
+            color: #000;
+            border-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+        }
+
+        /* 슬라이더 제어 */
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            color: #aaa;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: #111;
+            border-radius: 3px;
+            outline: none;
+            border: 1px solid #333;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--neon-orange);
+            cursor: pointer;
+            box-shadow: 0 0 6px var(--neon-orange);
+        }
+
+        /* 토글 스위치 및 액션 버튼 */
+        .toggle-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .action-btn {
+            flex: 1;
+            background: #252535;
+            border: 1px solid #555;
+            color: #fff;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .action-btn.shutter {
+            background: var(--neon-pink);
+            border-color: #ff6699;
+            color: #fff;
+            box-shadow: 0 0 10px rgba(255, 0, 85, 0.4);
+        }
+
+        .action-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* 스냅샷 갤러리 스트립 */
+        .gallery-strip {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding: 10px 20px;
+            background: #0d0d11;
+            border-top: 1px solid #222;
+            min-height: 80px;
+            align-items: center;
+        }
+
+        .gallery-thumb {
+            width: 60px;
+            height: 45px;
+            object-fit: cover;
+            border-radius: 4px;
+            border: 1px solid #444;
+            flex-shrink: 0;
+        }
+
+        .empty-gallery {
+            font-size: 0.75rem;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>SYNTH-CAM STUDIO v18</h1>
+        <p>Pro Lens Emulation & Analog Synthesizer Interface</p>
+    </header>
+
+    <div class="synth-chassis">
+        <!-- 뷰어 화면 -->
+        <div class="viewport-section" id="viewport">
+            <video id="webcam" autoplay playsinline></video>
+            <canvas id="snapshotCanvas"></canvas>
+            
+            <!-- 포커스 박스 -->
+            <div class="focus-box" id="focusBox"></div>
+
+            <!-- 그리드 -->
+            <div class="grid-lines" id="gridLines">
+                <div class="grid-cell"></div><div class="grid-cell"></div><div class="grid-cell"></div>
+                <div class="grid-cell"></div><div class="grid-cell"></div><div class="grid-cell"></div>
+                <div class="grid-cell"></div><div class="grid-cell"></div><div class="grid-cell"></div>
+            </div>
+
+            <!-- 카메라 HUD -->
+            <div class="hud-overlay">
+                <div class="hud-top">
+                    <span class="hud-badge"><span class="rec-dot"></span>PRO RAW</span>
+                    <span class="hud-badge" id="hudLens">1.0x MAIN</span>
+                    <span class="hud-badge" id="hudIso">ISO 100</span>
+                </div>
+                <div class="hud-bottom">
+                    <span class="hud-badge" id="hudOis">OIS: ACTIVE</span>
+                    <span class="hud-badge" id="hudAf">AF: CONTINOUS</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 신디사이저 조작 패널 -->
+        <div class="synth-panel">
+            <!-- 렌즈 모듈 -->
+            <div class="module-block">
+                <div class="module-title">Optical Lens Select</div>
+                <div class="lens-buttons">
+                    <button class="synth-btn" onclick="setLens(0.5, '0.5x ULTRA', this)">0.5x</button>
+                    <button class="synth-btn active" onclick="setLens(1.0, '1.0x MAIN', this)">1.0x</button>
+                    <button class="synth-btn" onclick="setLens(3.0, '3.0x TELE', this)">3.0x</button>
+                    <button class="synth-btn" onclick="setLens(5.0, '5.0x MACRO', this)">Macro</button>
+                </div>
+                <div class="slider-group" style="margin-top: 5px;">
+                    <div class="slider-label"><span>DIGITAL ZOOM</span><span id="zoomVal">1.0x</span></div>
+                    <input type="range" id="zoomSlider" min="1" max="10" step="0.1" value="1" oninput="updateZoom(this.value)">
+                </div>
+            </div>
+
+            <!-- 화질 및 보정 모듈 (OIS / 필터) -->
+            <div class="module-block">
+                <div class="module-title">Stabilization & Color</div>
+                <div class="toggle-row">
+                    <button class="action-btn" id="oisBtn" onclick="toggleOIS()">OIS S/W</button>
+                    <button class="action-btn" id="gridBtn" onclick="toggleGrid()">GRID 3x3</button>
+                </div>
+                <div class="slider-group" style="margin-top: 6px;">
+                    <div class="slider-label"><span>BRIGHTNESS</span><span id="brightVal">0</span></div>
+                    <input type="range" id="brightSlider" min="-50" max="50" value="0" oninput="updateFilters()">
+                </div>
+            </div>
+
+            <!-- 마스터 셔터 및 오디오 모듈 -->
+            <div class="module-block">
+                <div class="module-title">Master Control</div>
+                <div class="toggle-row">
+                    <button class="action-btn" onclick="triggerAutoFocus()">AF LOCK</button>
+                    <button class="action-btn shutter" onclick="takeSnapshot()">SHUTTER</button>
+                </div>
+                <div class="slider-group" style="margin-top: 6px;">
+                    <div class="slider-label"><span>SYNTH HAPTIC AUDIO</span><span>ON</span></div>
+                    <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="0.3">
+                </div>
+            </div>
+        </div>
+
+        <!-- 캡처 갤러리 스트립 -->
+        <div class="gallery-strip" id="galleryStrip">
+            <span class="empty-gallery">Captured photos will appear here...</span>
+        </div>
+    </div>
+
+    <script>
+        // Web Audio API 사운드 신디사이저 효과음 생성기
+        let audioCtx = null;
+        function playSynthSound(type) {
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                const vol = parseFloat(document.getElementById('volumeSlider').value);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+
+                if (type === 'click') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.05);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.05);
+                } else if (type === 'shutter') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.15);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.15);
+                } else if (type === 'focus') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+                    osc.frequency.setValueAtTime(1200, audioCtx.currentTime + 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.15);
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        // 웹캠 연결 초기화
+        const video = document.getElementById('webcam');
+        async function initCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: { ideal: 1920 }, height: { ideal: 1080 } }, 
+                    audio: false 
+                });
+                video.srcObject = stream;
+            } catch (err) {
+                alert('웹캠 접근 권한이 필요합니다. 브라우저 설정을 확인해주세요.');
+            }
+        }
+        initCamera();
+
+        // 렌즈 선택 및 디지털 줌 로직
+        let currentLensScale = 1.0;
+        let baseZoom = 1.0;
+
+        function setLens(scale, name, btn) {
+            playSynthSound('click');
+            document.querySelectorAll('.lens-buttons .synth-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            baseZoom = scale;
+            document.getElementById('zoomSlider').value = scale;
+            updateZoom(scale);
+            document.getElementById('hudLens').innerText = name;
+        }
+
+        function updateZoom(val) {
+            currentLensScale = parseFloat(val);
+            document.getElementById('zoomVal').innerText = currentLensScale.toFixed(1) + 'x';
+            applyVideoTransform();
+        }
+
+        // 필터 및 OIS 흔들림 보정 시뮬레이션
+        let oisState = true;
+        let brightness = 0;
+
+        function toggleOIS() {
+            playSynthSound('click');
+            oisState = !oisState;
+            const btn = document.getElementById('oisBtn');
+            const hudOis = document.getElementById('hudOis');
+            if (oisState) {
+                btn.style.borderColor = 'var(--neon-cyan)';
+                hudOis.innerText = 'OIS: ACTIVE';
+            } else {
+                btn.style.borderColor = '#555';
+                hudOis.innerText = 'OIS: OFF';
+            }
+            applyVideoTransform();
+        }
+
+        function toggleGrid() {
+            playSynthSound('click');
+            const grid = document.getElementById('gridLines');
+            const btn = document.getElementById('gridBtn');
+            grid.classList.toggle('active');
+            btn.style.borderColor = grid.classList.contains('active') ? 'var(--neon-cyan)' : '#555';
+        }
+
+        function updateFilters() {
+            brightness = document.getElementById('brightSlider').value;
+            document.getElementById('brightVal').innerText = brightness;
+            applyVideoTransform();
+        }
+
+        function applyVideoTransform() {
+            let filterStr = `brightness(${100 + parseInt(brightness)}%)`;
+            if (oisState) {
+                // 부드러운 스무딩 필터 느낌
+                filterStr += ` contrast(105%)`;
+            }
+            video.style.transform = `scale(${currentLensScale})`;
+            video.style.filter = filterStr;
+        }
+
+        // 터치/클릭 포커스 시뮬레이션
+        const viewport = document.getElementById('viewport');
+        const focusBox = document.getElementById('focusBox');
+
+        viewport.addEventListener('click', (e) => {
+            const rect = viewport.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            focusBox.style.left = `${x}px`;
+            focusBox.style.top = `${y}px`;
+            focusBox.classList.remove('animate');
+            void focusBox.offsetWidth; // reflow
+            focusBox.classList.add('animate');
+
+            playSynthSound('focus');
+            document.getElementById('hudAf').innerText = `AF: LOCKED (${Math.round(x)},${Math.round(y)})`;
+            setTimeout(() => {
+                document.getElementById('hudAf').innerText = 'AF: CONTINUOUS';
+            }, 1200);
+        });
+
+        function triggerAutoFocus() {
+            playSynthSound('focus');
+            focusBox.style.left = `50%`;
+            focusBox.style.top = `50%`;
+            focusBox.classList.remove('animate');
+            void focusBox.offsetWidth;
+            focusBox.classList.add('animate');
+        }
+
+        // 스냅샷 촬영 및 갤러리 추가
+        function takeSnapshot() {
+            playSynthSound('shutter');
+            const canvas = document.getElementById('snapshotCanvas');
+            canvas.width = video.videoWidth || 1280;
+            canvas.height = video.videoHeight || 720;
+            const ctx = canvas.getContext('2d');
+            
+            // 줌 및 필터 반영 캡처
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.scale(currentLensScale, currentLensScale);
+            ctx.translate(-video.videoWidth / 2, -video.videoHeight / 2);
+            ctx.filter = video.style.filter;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            ctx.restore();
+
+            const dataUrl = canvas.toDataURL('image/png');
+            
+            // 갤러리 스트립에 추가
+            const strip = document.getElementById('galleryStrip');
+            const emptyMsg = strip.querySelector('.empty-gallery');
+            if (emptyMsg) emptyMsg.remove();
+
+            const img = document.createElement('img');
+            img.src = dataUrl;
+            img.className = 'gallery-thumb';
+            img.onclick = () => {
+                const w = window.open('');
+                w.document.write(`<img src="${dataUrl}" style="width:100%;background:#000;" />`);
+            };
+            strip.prepend(img);
+        }
+    </script>
+</body>
+</html>
