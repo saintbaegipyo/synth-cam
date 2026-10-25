@@ -4,7 +4,7 @@ HTML
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SYNTH-CAM Pro Studio v18.5 (AI & Night Mode)</title>
+    <title>SYNTH-CAM Studio v18.6 (AI & Night Mode)</title>
     <style>
         :root {
             --synth-dark: #121216;
@@ -329,7 +329,7 @@ HTML
 <body>
 
     <header>
-        <h1>SYNTH-CAM STUDIO v18.5</h1>
+        <h1>SYNTH-CAM STUDIO v18.6</h1>
         <p>AI Neural Engine & Pro Optics Emulation</p>
     </header>
 
@@ -466,7 +466,7 @@ HTML
                 video.srcObject = stream;
                 await video.play();
             } catch (err) {
-                alert('웹캠 접근 권한이 필요합니다.');
+                alert('웹캠 접근 권한이 필요합니다. 브라우저 설정이나 카메라 연결을 확인해주세요.');
             }
         }
         initCamera();
@@ -483,7 +483,7 @@ HTML
             applyVideoTransform();
         }
 
-        // f/# 조절 (아페이처 시뮬레이션: 낮은 조리개일수록 배경 심도/아웃포커싱 블러 가중)
+        // f/# 조절
         let apertureVal = 2.8;
         function updateAperture(val) {
             apertureVal = parseFloat(val);
@@ -546,7 +546,7 @@ HTML
             aiBox.style.height = `${h}%`;
             
             const labels = ['AI: HUMAN (99.8%)', 'AI: FACE DETECTED', 'AI: DEVICE / LAPTOP', 'AI: NEURAL FOCUS'];
-            document.getElementById('aiLabel.innerText'] = labels[Math.floor(Math.random() * labels.length)];
+            document.getElementById('aiLabel').innerText = labels[Math.floor(Math.random() * labels.length)];
 
             setTimeout(moveAiBoxRandomly, 2500);
         }
@@ -562,12 +562,10 @@ HTML
             let brightNum = 100 + parseInt(brightness);
             let blurNum = 0;
 
-            // f/1.4에 가까울수록 아웃포커싱 시뮬레이션 블러 적용
             if (apertureVal < 3.0) {
                 blurNum = (3.0 - apertureVal) * 1.5;
             }
 
-            // 나이트 모드 켜면 증폭
             if (nightMode) {
                 brightNum += 60;
             }
